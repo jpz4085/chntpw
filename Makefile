@@ -1,50 +1,93 @@
 #
 # Makefile for the Offline NT Password Editor
 #
+# Available targets:
+# make              compile binaries
+# make install      install compiled programs and documentation
+# make uninstall    remove installed programs and documentation
+# make clean        remove binaries
+# make distclean    remove binaries and associated folders (bin/obj)
 #
-# Change here to point to the needed OpenSSL libraries & .h files
-# See INSTALL for more info.
-#
+# Contributers: jpz4085, Mina Her, and Petter Nordahl-Hagen
 
-OSSLPATH=/usr
-OSSLINC=$(OSSLPATH)/include
+# Installation paths.
+PREFIX ?= /opt/local
+BINDIR = $(PREFIX)/bin
+MANDIR = $(PREFIX)/man/man8
+DOCDIR = $(PREFIX)/share/doc/chntpw
+
+# OpenSSL include and library paths.
+OSSLINC = $(PREFIX)/include/openssl-1.1
+OSSLLIB = $(PREFIX)/lib/openssl-1.1
 
 CC=gcc
 
+# Resource folders for binaries, documentation, and source files.
+BINS = bin
+DOCS = doc
+MANS = man
+OBJS = obj
+SRCS = src
+
 CFLAGS= -DDOCRYPTO -g -I. -I$(OSSLINC) -Wall
-OSSLLIB=$(OSSLPATH)/lib
 
+LIBS=-L$(OSSLLIB) $(OSSLLIB)/libcrypto.a $(PREFIX)/lib/libz.a
 
-LIBS=-L$(OSSLLIB) $(OSSLLIB)/libcrypto.a
+PACKAGES = chntpw cpnt reged samusrgrp sampasswd samunlock
+BUILDPKGS = $(addprefix $(BINS)/, $(PACKAGES))
+BIN_FILES = $(addprefix $(BINDIR)/, $(PACKAGES))
+DOC_FILES = $(foreach FILE, $(wildcard $(DOCS)/*.txt), $(subst $(DOCS),$(DOCDIR),$(dir $(FILE)))$(notdir $(FILE)))
+MAN_FILES = $(foreach FILE, $(wildcard $(MANS)/*.8), $(subst $(MANS),$(MANDIR),$(dir $(FILE)))$(notdir $(FILE)))
+GZIP_FILES = $(foreach FILE, $(wildcard $(MANS)/*.8), $(subst $(MANS),$(MANDIR),$(dir $(FILE)))$(subst .8,.8.gz,$(notdir $(FILE))))
 
+all: $(BUILDPKGS)
 
-all: chntpw cpnt reged samusrgrp sampasswd
+install: $(BUILDPKGS) $(BIN_FILES) $(DOC_FILES) $(MAN_FILES)
 
-chntpw: chntpw.o ntreg.o edlib.o libsam.o
-	$(CC) $(CFLAGS) -o chntpw chntpw.o ntreg.o edlib.o libsam.o $(LIBS)
+uninstall:
+	$(RM) $(BIN_FILES)
+	$(RM) $(GZIP_FILES)
+	$(RM) -r $(DOCDIR)
 
-cpnt: cpnt.o
-	$(CC) $(CFLAGS) -o cpnt cpnt.o $(LIBS)
+$(BINDIR)/%: $(BINDIR)
+	install -m 755 $(BINS)/$(*F) $(@D)
 
-reged: reged.o ntreg.o edlib.o
-	$(CC) $(CFLAGS) -o reged reged.o ntreg.o edlib.o
+$(DOCDIR)/%: $(DOCDIR)
+	install -m 644 $(DOCS)/$(*F) $(@D)
 
-samusrgrp: samusrgrp.o ntreg.o libsam.o
-	$(CC) $(CFLAGS) -o samusrgrp samusrgrp.o ntreg.o libsam.o 
+$(MANDIR)/%: $(MANDIR)
+	install -m 644 $(MANS)/$(*F) $(@D)
+	gzip -nf $@
 
-sampasswd: sampasswd.o ntreg.o libsam.o
-	$(CC) $(CFLAGS) -o sampasswd sampasswd.o ntreg.o libsam.o 
+$(BINDIR) $(DOCDIR) $(MANDIR):
+	install -d $@
 
+$(BINS) $(OBJS):
+	mkdir $@
 
+$(BINS)/chntpw: $(addprefix $(OBJS)/, chntpw.o ntreg.o edlib.o libsam.o)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-#ts: ts.o ntreg.o
-#	$(CC) $(CFLAGS) -nostdlib -o ts ts.o ntreg.o $(LIBS)
+$(BINS)/cpnt: $(OBJS)/cpnt.o
+	$(CC) $(CFLAGS) -o $@ $< $(LIBS)
 
-# -Wl,-t
+$(BINS)/reged: $(addprefix $(OBJS)/,  reged.o ntreg.o edlib.o)
+	$(CC) $(CFLAGS) -o $@ $^
 
-.c.o:
-	$(CC) -c $(CFLAGS) $<
+$(BINS)/samusrgrp: $(addprefix $(OBJS)/, samusrgrp.o ntreg.o libsam.o)
+	$(CC) $(CFLAGS) -o $@ $^
+
+$(BINS)/sampasswd: $(addprefix $(OBJS)/, sampasswd.o ntreg.o libsam.o)
+	$(CC) $(CFLAGS) -o $@ $^
+
+$(BINS)/samunlock: $(addprefix $(OBJS)/, samunlock.o ntreg.o libsam.o)
+	$(CC) $(CFLAGS) -o $@ $^
+
+$(OBJS)/%.o: $(SRCS)/%.c | $(OBJS) $(BINS)
+	$(CC) -c $(CFLAGS) -o $@ $<
 
 clean:
-	rm -f *.o chntpw cpnt reged samusrgrp sampasswd *~
+	rm -f $(BINS)/* $(OBJS)/* *~
 
+distclean: clean
+	rm -d $(BINS) $(OBJS)

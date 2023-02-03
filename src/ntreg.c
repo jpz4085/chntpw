@@ -536,7 +536,7 @@ void parse_nk(struct hive *hdesc, int vofs, int blen)
   printf("== nk at offset %0x\n",vofs);
 
   /* #define D_OFFS2(o) ( (void *)&(key->o)-(void *)hdesc->buffer-vofs ) */
-#define D_OFFS(o) ( (void *)&(key->o)-(void *)hdesc->buffer-vofs )
+#define D_OFFS(o) (uint) ( (void *)&(key->o)-(void *)hdesc->buffer-vofs )
 
   key = (struct nk_key *)(hdesc->buffer + vofs);
   printf("%04x   type              = 0x%02x %s\n", D_OFFS(type)  ,key->type,
@@ -2147,7 +2147,7 @@ int alloc_val_data(struct hive *hdesc, int vofs, char *path, int size,int exact)
 
 
   } else { /* 4 bytes or less are inlined */
-    datablk = vkofs + (int32_t)&(vkkey->ofs_data) - (int32_t)vkkey;
+    datablk = vkofs + (intptr_t)&(vkkey->ofs_data) - (intptr_t)vkkey;
     size |= 0x80000000;
   }
 
